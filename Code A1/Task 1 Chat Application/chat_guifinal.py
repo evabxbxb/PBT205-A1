@@ -3,35 +3,57 @@ from tkinter import scrolledtext, messagebox
 import pika
 import threading
 
+""" tkinter: GUI toolkit.
+scrolledtext: Widget with a scrollable text box.
+messagebox: To show popup alerts.
+pika: Python client to interact with RabbitMQ.
+threading: Runs message listening in the background so the GUI stays responsive."""
+
 class ChatClientGUI:
+# Initializes a Chat Window
+    
     def __init__(self, root, username, room, host="localhost", port=5672):
+    # Constructor: init 
+    # Takes in Tk root, username, room, and optional RabbitMQ connection info.
         self.root = root
         self.root.title(f"Chat - {username} in {room}")
+            # f: formatted string literal
+            # It's cleaner and easier than using "Chat - " + username + " in " + room
+            # sets title
         self.username = username
+            #stores username (standard pattern)
         self.room = room
+            #stores room name
 
         # GUI elements
         self.chat_log = scrolledtext.ScrolledText(root, state='disabled', wrap=tk.WORD, width=60, height=20)
         self.chat_log.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
-
+            # Read-only chat display area
+        
         self.message_entry = tk.Entry(root, width=50)
         self.message_entry.grid(row=1, column=0, padx=10, pady=10)
         self.message_entry.bind("<Return>", self.send_message)
+            # Message entry box. Pressing enter sends message.
 
         self.send_button = tk.Button(root, text="Send", width=10, command=self.send_message)
         self.send_button.grid(row=1, column=1, padx=10, pady=10)
+            # Send Button
+        
 
         # Connect to RabbitMQ
         try:
             self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=host, port=port))
             self.channel = self.connection.channel()
 
-            # Setup exchange/queue
+            # Setup exchange/queue EXCHANGE DECLARATION
             self.exchange_name = f"room_{self.room}"
             self.channel.exchange_declare(exchange=self.exchange_name, exchange_type="fanout")
+            
             result = self.channel.queue_declare(queue='', exclusive=True)
             self.queue_name = result.method.queue
+            # Queue Declaration: An exclusive, auto-deleted queue is created for the client.
             self.channel.queue_bind(exchange=self.exchange_name, queue=self.queue_name)
+            # Queue Binding: The queue is bound to the room's exchange, enabling message reception.
 
             # Start receiving messages
             self.start_listening()
